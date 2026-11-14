@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jairbet"
+version = "0.2.0"
+description = "Telegram bot that tracks football score predictions in SQLite"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pandas>=2.2,<3.0",
+  "openpyxl>=3.1,<4.0",
+  "python-telegram-bot[job-queue]>=21.0,<23.0",
+  "httpx>=0.27,<1.0",
+  "matplotlib>=3.8,<4.0",
+  "python-dotenv>=1.0,<2.0",
+  "tzdata>=2024.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0,<9.0", "ruff>=0.5"]
+
+[project.scripts]
+jairbet-bot = "jairbet.bot.main:main"
+jairbet-import = "jairbet.importer:main"
+
+[tool.setuptools.packages.find]
+include = ["jairbet*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

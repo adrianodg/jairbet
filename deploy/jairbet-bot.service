@@ -1,0 +1,28 @@
+[Unit]
+Description=Jairbet Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jairbet
+Group=jairbet
+WorkingDirectory=/opt/jairbet
+EnvironmentFile=/opt/jairbet/.env
+Environment=TZ=America/Sao_Paulo
+Environment=PYTHONUNBUFFERED=1
+Environment=NO_COLOR=1
+Environment=MPLCONFIGDIR=/var/lib/jairbet/.matplotlib
+ExecStart=/opt/jairbet/.venv/bin/python -m jairbet.bot
+Restart=always
+RestartSec=10
+
+# Hardening: the bot only writes to /var/lib/jairbet.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/jairbet
+
+[Install]
+WantedBy=multi-user.target

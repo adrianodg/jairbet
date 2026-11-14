@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+jairbet.db
+jairbet.db-*
+*.pre-v*.db
+backups/
+
+# Personal data: keep out of the public repository
+Jairbet_*.xlsx
