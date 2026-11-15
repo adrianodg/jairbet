@@ -43,7 +43,7 @@ cp .env.example .env      # then fill it in
 | Variable | Meaning |
 |---|---|
 | `TELEGRAM_BOT_TOKEN` | Token from @BotFather (required) |
-| `ADMIN_TELEGRAM_IDS` | Your user ID; several admins separated by commas (required) |
+| `ADMIN_TELEGRAM_IDS` | Your user ID; several admins separated by commas (empty = setup mode, only `/chatid` works) |
 | `JAIR_TELEGRAM_ID` | Jair's user ID |
 | `GROUP_CHAT_ID` | Group that receives results; empty = private messages |
 | `FOOTBALL_DATA_TOKEN` | football-data.org key; empty disables sync |
@@ -71,7 +71,7 @@ Everyone allowed (Jair, admin, the group):
 | `/resultados [N]` | Latest results and points |
 | `/ranking [mes\|AAAA-MM\|ano\|BSA]` | Ranking, overall or filtered |
 | `/stats` | Charts: cumulative points, points per month, head-to-head, hits per team, favourite scorelines |
-| `/time <nome>` | A team's form and strengths |
+| `/time <nome>` | A team's performance: recent form, goals, and home/away strength |
 | `/corvo [id]` | Corvo's picks and probabilities |
 
 Jair (private chat): `/palpitar` (tap a match and the goals, or type `2x1`),

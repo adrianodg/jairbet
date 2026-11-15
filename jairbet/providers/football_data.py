@@ -139,6 +139,32 @@ class FootballDataProvider:
         self._headers = {"X-Auth-Token": token}
         self._max_retries = max_retries
         self._sleep = sleep
+        self._throttle_until = 0.0
+        self._clock = time.monotonic
+
+    def _remember_quota(self, response: httpx.Response) -> None:
+        """Read the throttling headers and plan a pause when the quota is used up.
+
+        football-data.org sends ``X-Requests-Available-Minute`` (requests left in
+        the current window) and ``X-RequestCounter-Reset`` (seconds until the
+        window resets) on every response.
+
+        Args:
+            response: Any API response.
+        """
+        available = response.headers.get("X-Requests-Available-Minute", "")
+        reset = response.headers.get("X-RequestCounter-Reset", "")
+        if available.isdigit() and int(available) <= 0 and reset.isdigit():
+            wait = min(float(reset) + 1, MAX_RATE_LIMIT_WAIT)
+            self._throttle_until = self._clock() + wait
+
+    def _wait_for_quota(self) -> None:
+        """Sleep until the rate-limit window resets, if the quota is used up."""
+        wait = self._throttle_until - self._clock()
+        if wait > 0:
+            warning(f"football-data quota used up; waiting {wait:.0f}s")
+            self._sleep(wait)
+        self._throttle_until = 0.0
 
     def _get(self, path: str, params: Mapping[str, str] | None = None) -> Any:
         """Send a GET request, retrying rate limits and transient failures.
@@ -156,6 +182,7 @@ class FootballDataProvider:
         url = f"{self._base_url}{path}"
         last_error = "unknown error"
         for attempt in range(self._max_retries + 1):
+            self._wait_for_quota()
             try:
                 response = self._client.get(
                     url, params=dict(params or {}), headers=self._headers
@@ -164,6 +191,7 @@ class FootballDataProvider:
                 last_error = f"network error: {exc}"
                 wait = 2.0**attempt
             else:
+                self._remember_quota(response)
                 if response.status_code == 200:
                     return response.json()
                 if response.status_code == 429:

@@ -35,7 +35,7 @@ PUBLIC_COMMANDS = [
     BotCommand("ranking", "Classificação"),
     BotCommand("stats", "Gráficos"),
     BotCommand("corvo", "Palpites do Corvo"),
-    BotCommand("time", "Forma de um time"),
+    BotCommand("time", "Desempenho de um time: forma, gols e força"),
     BotCommand("ajuda", "Ajuda"),
 ]
 
@@ -55,7 +55,10 @@ def validate_settings(settings: Settings) -> list[str]:
     if not settings.telegram_token:
         problems.append("TELEGRAM_BOT_TOKEN is not set (create a bot with @BotFather)")
     if not settings.admin_ids:
-        problems.append("ADMIN_TELEGRAM_IDS is not set (your Telegram user ID)")
+        warning(
+            "ADMIN_TELEGRAM_IDS is not set: setup mode, only /chatid answers. "
+            "Send /chatid to the bot, put your ID in .env and restart"
+        )
     if settings.jair_id is None:
         warning("JAIR_TELEGRAM_ID is not set: nobody can place bets yet")
     if not settings.football_data_token:

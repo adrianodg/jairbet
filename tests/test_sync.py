@@ -182,6 +182,36 @@ def test_legacy_match_is_linked_not_duplicated(database: sqlite3.Connection) -> 
     assert [tuple(row) for row in get_ranking(database)] == before
 
 
+def test_rescheduled_legacy_match_with_same_score_is_linked(
+    database: sqlite3.Connection,
+) -> None:
+    """A legacy fixture a few days off is linked when the final score agrees."""
+    flamengo = add_team(database, "Flamengo")
+    palmeiras = add_team(database, "Palmeiras")
+    legacy = add_match(
+        database, "2026-11-08", flamengo, palmeiras, 2, 1, source="import"
+    )
+    final = _api(status="FINISHED", home_goals=2, away_goals=1)
+    result = sync_matches(database, [final], "BSA")
+    assert (result.created, result.updated) == (0, 1)
+    assert get_match(database, legacy)["external_id"] == "1"
+
+
+def test_nearby_legacy_match_with_other_score_is_not_linked(
+    database: sqlite3.Connection,
+) -> None:
+    """A cup leg days away with a different score stays a separate match."""
+    flamengo = add_team(database, "Flamengo")
+    palmeiras = add_team(database, "Palmeiras")
+    legacy = add_match(
+        database, "2026-11-08", flamengo, palmeiras, 0, 0, source="import"
+    )
+    final = _api(status="FINISHED", home_goals=2, away_goals=1)
+    result = sync_matches(database, [final], "BSA")
+    assert (result.created, result.updated) == (1, 0)
+    assert get_match(database, legacy)["external_id"] is None
+
+
 def test_unknown_team_is_created_and_reported(database: sqlite3.Connection) -> None:
     """New clubs are created with their short name and announced."""
     result = sync_matches(

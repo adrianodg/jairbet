@@ -17,7 +17,11 @@ Assumptions made while building Jairbet. Newest (v2) first.
 - Matches **edited by the admin are locked** (`admin_locked = 1`) and sync skips
   them. `/editarjogo <id> destravar` unlocks.
 - **Legacy reconciliation:** a match without a provider ID with the same home and
-  away team within ±1 day is linked instead of duplicated. Legacy matches are
+  away team within ±1 day is linked instead of duplicated. If none is found, a
+  legacy match with the same fixture **and the same final score** within ±7 days
+  is linked (the workbook dated round 5 on 08/03, but it was played on 11–12/03).
+  Wider windows are not used: two-legged cup ties between Série A clubs would be
+  linked by mistake. Postponed games further off need a manual date fix first. Legacy matches are
   put in the `MANUAL` ("Outros") competition by the migration and move to `BSA`
   when linked.
 - **Team names:** provider names are normalised (accents, case, FC/EC/SE…,

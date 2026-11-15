@@ -133,3 +133,33 @@ def test_missing_token_is_rejected() -> None:
     """The provider refuses to start without an API key."""
     with pytest.raises(ProviderError):
         FootballDataProvider("")
+
+
+def test_used_up_quota_pauses_before_the_next_request() -> None:
+    """A response with no requests left delays the next call until the reset."""
+    headers = {"X-Requests-Available-Minute": "0", "X-RequestCounter-Reset": "20"}
+    responses = [
+        httpx.Response(200, json={"matches": []}, headers=headers),
+        httpx.Response(200, json={"matches": []}),
+    ]
+    sleeps: list[float] = []
+    provider = _provider(httpx.MockTransport(lambda _: responses.pop(0)), sleeps)
+    provider.fetch_matches("BSA")
+    assert sleeps == []
+    provider.fetch_matches("BSA")
+    assert len(sleeps) == 1 and 19 < sleeps[0] <= 21
+
+
+def test_remaining_quota_does_not_pause() -> None:
+    """Requests left in the window mean no waiting."""
+    headers = {"X-Requests-Available-Minute": "7", "X-RequestCounter-Reset": "40"}
+    sleeps: list[float] = []
+    provider = _provider(
+        httpx.MockTransport(
+            lambda _: httpx.Response(200, json={"matches": []}, headers=headers)
+        ),
+        sleeps,
+    )
+    provider.fetch_matches("BSA")
+    provider.fetch_matches("BSA")
+    assert sleeps == []

@@ -101,3 +101,10 @@ def test_truncate_keeps_messages_short() -> None:
     """Long messages are cut under Telegram's limit."""
     text = formatters.truncate("linha\n" * 2000)
     assert len(text) <= formatters.MAX_MESSAGE + 2
+
+
+def test_join_newest_last_drops_oldest_cards() -> None:
+    """When too long, the oldest cards go and the newest stays at the end."""
+    cards = ["a" * 40, "b" * 40, "c" * 40]
+    assert formatters.join_newest_last(cards, limit=90) == "b" * 40 + "\n\n" + "c" * 40
+    assert formatters.join_newest_last(cards[:1]) == "a" * 40

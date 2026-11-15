@@ -13,7 +13,13 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import cast
 
-from jairbet.config import DEFAULT_TIMEZONE, TEAM_ALIASES, TEAM_NAME_STOPWORDS
+from jairbet.config import (
+    DEFAULT_TIMEZONE,
+    RECONCILE_DAYS,
+    RECONCILE_SAME_SCORE_DAYS,
+    TEAM_ALIASES,
+    TEAM_NAME_STOPWORDS,
+)
 from jairbet.console import info, warning
 from jairbet.providers.base import ApiMatch, FixtureProvider
 from jairbet.repository import (
@@ -265,9 +271,19 @@ def _create_or_link(
         desired: Columns implied by the provider data.
         result: Result object updated in place.
     """
+    match_date = str(desired["match_date"])
     candidate = find_reconcile_candidate(
-        connection, home_id, away_id, str(desired["match_date"])
+        connection, home_id, away_id, match_date, RECONCILE_DAYS
     )
+    if candidate is None and api.home_goals is not None and api.away_goals is not None:
+        candidate = find_reconcile_candidate(
+            connection,
+            home_id,
+            away_id,
+            match_date,
+            RECONCILE_SAME_SCORE_DAYS,
+            score=(api.home_goals, api.away_goals),
+        )
     if candidate is not None:
         link: dict[str, object] = {"external_id": api.external_id, "source": "api"}
         if candidate["admin_locked"]:

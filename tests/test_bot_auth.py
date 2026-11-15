@@ -1,11 +1,13 @@
 """Tests for bot access rules."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from jairbet.bot.auth import resolve_access
-from jairbet.config import Settings
+from jairbet.bot.main import validate_settings
+from jairbet.config import Settings, load_settings
 
 SETTINGS = Settings(
     telegram_token="t",
@@ -37,3 +39,10 @@ def test_access_matrix(
     """Admins edit, Jair bets in private, the group only reads."""
     access = resolve_access(SETTINGS, user, chat, chat_type)
     assert (access.can_read, access.can_bet, access.can_admin) == (read, bet, admin)
+
+
+def test_missing_ids_allow_setup_mode() -> None:
+    """Only the bot token is fatal, so /chatid can be used to find the IDs."""
+    settings = replace(load_settings(None), telegram_token="x", admin_ids=frozenset())
+    assert validate_settings(settings) == []
+    assert validate_settings(replace(settings, telegram_token="")) != []

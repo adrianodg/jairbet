@@ -76,6 +76,22 @@ def truncate(text: str, limit: int = MAX_MESSAGE) -> str:
     return text[: cut if cut > 0 else limit] + "\n…"
 
 
+def join_newest_last(cards: Sequence[str], limit: int = MAX_MESSAGE) -> str:
+    """Join match cards (oldest first), dropping the oldest ones if too long.
+
+    Args:
+        cards: Message blocks in chronological order.
+        limit: Maximum characters.
+
+    Returns:
+        The blocks that fit, always keeping the most recent one.
+    """
+    kept = list(cards)
+    while len(kept) > 1 and len("\n\n".join(kept)) > limit:
+        kept.pop(0)
+    return truncate("\n\n".join(kept), limit)
+
+
 def teams(match: Row) -> str:
     """Return ``Home x Away`` in bold.
 
@@ -413,7 +429,7 @@ def help_message(is_admin: bool, is_jair: bool) -> str:
         "/resultados [N] — últimos resultados",
         "/ranking [mes|AAAA-MM|ano|BSA] — classificação",
         "/stats — gráficos",
-        "/time &lt;nome&gt; — forma de um time",
+        "/time &lt;nome&gt; — desempenho de um time: forma, gols e força",
         "/corvo [id] — o que o Corvo calcula",
     ]
     if is_jair:
@@ -428,6 +444,7 @@ def help_message(is_admin: bool, is_jair: bool) -> str:
         lines += [
             "",
             "🛠 <b>Admin</b>",
+            "/meuspalpites — palpites do Jair em aberto",
             "/novojogo — cadastrar jogo de qualquer campeonato",
             "/buscarjogo &lt;código&gt; — acompanhar jogo da API (ex.: CLI, CL)",
             "/editarjogo &lt;id&gt; &lt;campo&gt; &lt;valor&gt;",

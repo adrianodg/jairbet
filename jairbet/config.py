@@ -91,6 +91,12 @@ AUTO_BETTORS = (MACACO_NAME, CARANGUEJO_NAME, CORVO_NAME)
 RANDOM_SCORE_MIN = 0
 RANDOM_SCORE_MAX = 3
 
+# Legacy reconciliation: an imported match is linked to a provider match for the
+# same fixture within RECONCILE_DAYS, or within RECONCILE_SAME_SCORE_DAYS when
+# both have the same final score (rounds moved to midweek, for example).
+RECONCILE_DAYS = 1
+RECONCILE_SAME_SCORE_DAYS = 7
+
 # Corvo's Poisson model.
 CORVO_WINDOW_DAYS = 365
 CORVO_MIN_MATCHES = 20

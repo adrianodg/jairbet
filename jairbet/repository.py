@@ -19,6 +19,31 @@ LEFT JOIN competition AS c ON c.competition_id = m.competition_id"""
 # Sort key putting legacy matches without kickoff at the start of their day.
 PLAYED_AT = "COALESCE(m.kickoff_at, m.match_date || ' 00:00:00')"
 
+
+def _kind_order(column: str) -> str:
+    """Build an SQL sort key listing bettors as Jair, Macaco, Caranguejo, Corvo.
+
+    Args:
+        column: SQL expression holding the bettor kind.
+
+    Returns:
+        A ``CASE`` expression (constants only, no user values).
+    """
+    kinds = list(dict.fromkeys(BETTOR_KINDS.values()))
+    whens = " ".join(f"WHEN '{kind}' THEN {index}" for index, kind in enumerate(kinds))
+    return f"CASE {column} {whens} ELSE {len(kinds)} END"
+
+
+# Display order of bettors in every listing.
+BETTOR_ORDER = _kind_order("kind")
+BET_ORDER = _kind_order("bettor_kind")
+# Ties in the ranking keep the same order (by name, so v1 databases work too).
+RANKING_ORDER = (
+    "rank, CASE bettor "
+    + " ".join(f"WHEN '{name}' THEN {i}" for i, name in enumerate(BETTOR_KINDS))
+    + f" ELSE {len(BETTOR_KINDS)} END, bettor"
+)
+
 MATCH_UPDATABLE = frozenset(
     {
         "match_date",
@@ -166,8 +191,8 @@ def get_bettors(
         Bettor rows.
     """
     return connection.execute(
-        """SELECT * FROM bettor WHERE (? = 0 OR active = 1)
-        ORDER BY kind <> 'human', name""",
+        f"""SELECT * FROM bettor WHERE (? = 0 OR active = 1)
+        ORDER BY {BETTOR_ORDER}, name""",
         (int(active_only),),
     ).fetchall()
 
@@ -635,6 +660,7 @@ def find_reconcile_candidate(
     away_team_id: int,
     match_date: str,
     tolerance_days: int = 1,
+    score: tuple[int, int] | None = None,
 ) -> sqlite3.Row | None:
     """Find a legacy match (no provider ID) for the same fixture near a date.
 
@@ -644,17 +670,25 @@ def find_reconcile_candidate(
         away_team_id: Away team identifier.
         match_date: ISO date reported by the provider.
         tolerance_days: Allowed date difference in days.
+        score: When given, only legacy matches with this exact score qualify.
 
     Returns:
         Closest matching legacy match row, or ``None``.
     """
+    score_filter = ""
+    params: list[object] = [home_team_id, away_team_id, match_date, tolerance_days]
+    if score is not None:
+        score_filter = " AND m.home_goals = ? AND m.away_goals = ?"
+        params.extend(score)
+    params.append(match_date)
     return connection.execute(
         MATCH_SELECT
         + """ WHERE m.external_id IS NULL AND m.home_team_id = ?
         AND m.away_team_id = ?
-        AND ABS(julianday(m.match_date) - julianday(?)) <= ?
-        ORDER BY ABS(julianday(m.match_date) - julianday(?)) LIMIT 1""",
-        (home_team_id, away_team_id, match_date, tolerance_days, match_date),
+        AND ABS(julianday(m.match_date) - julianday(?)) <= ?"""
+        + score_filter
+        + """ ORDER BY ABS(julianday(m.match_date) - julianday(?)) LIMIT 1""",
+        params,
     ).fetchone()
 
 
@@ -987,11 +1021,11 @@ def bets_for_match(connection: sqlite3.Connection, match_id: int) -> list[sqlite
         match_id: Match identifier.
 
     Returns:
-        ``v_bet_score`` rows, humans first.
+        ``v_bet_score`` rows: Jair, Macaco, Caranguejo, Corvo.
     """
     return connection.execute(
-        """SELECT * FROM v_bet_score WHERE match_id = ?
-        ORDER BY bettor_kind <> 'human', bettor""",
+        f"""SELECT * FROM v_bet_score WHERE match_id = ?
+        ORDER BY {BET_ORDER}, bettor""",
         (match_id,),
     ).fetchall()
 
@@ -1039,10 +1073,10 @@ def get_ranking(
     """
     if competition is None and month is None and season is None:
         return connection.execute(
-            "SELECT * FROM v_ranking ORDER BY rank, bettor"
+            f"SELECT * FROM v_ranking ORDER BY {RANKING_ORDER}"
         ).fetchall()
     return connection.execute(
-        """SELECT bettor, COUNT(*) AS matches, SUM(winner_hit) AS winner_hits,
+        f"""SELECT bettor, COUNT(*) AS matches, SUM(winner_hit) AS winner_hits,
         SUM(exact_hit) AS exact_hits,
         ROUND(100.0 * SUM(winner_hit) / COUNT(*), 1) AS pct_winner,
         ROUND(100.0 * SUM(exact_hit) / COUNT(*), 1) AS pct_exact,
@@ -1052,7 +1086,7 @@ def get_ranking(
         AND (? IS NULL OR competition = ?)
         AND (? IS NULL OR substr(match_date, 1, 7) = ?)
         AND (? IS NULL OR substr(match_date, 1, 4) = ?)
-        GROUP BY bettor ORDER BY rank, bettor""",
+        GROUP BY bettor ORDER BY {RANKING_ORDER}""",
         (competition, competition, month, month, season, season),
     ).fetchall()
 

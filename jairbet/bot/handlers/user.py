@@ -10,7 +10,7 @@ from telegram.ext import ContextTypes
 from jairbet import charts, stats
 from jairbet.bettors import corvo_for_match, team_profile
 from jairbet.bot import formatters, keyboards
-from jairbet.bot.auth import access_for, restricted
+from jairbet.bot.auth import REFUSALS, access_for, restricted
 from jairbet.config import (
     BRASILEIRAO_CODE,
     JAIR_NAME,
@@ -295,15 +295,21 @@ async def palpitar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-@restricted("bet")
+@restricted("read")
 async def meuspalpites(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """List Jair's open bets, with buttons to change them.
+    """List Jair's open bets, with buttons to change them (for Jair).
+
+    The admin sees the same list read-only, with a hint to ``/editarpalpite``.
 
     Args:
         update: Telegram update.
         context: Handler context.
     """
     settings = settings_of(context)
+    access = access_for(update, context)
+    if not (access.can_bet or access.is_admin):
+        await reply(update, REFUSALS["bet"])
+        return
     today = local_date(utc_now(), settings.timezone).isoformat()
     with session(settings.db_path) as connection:
         jair_id = get_bettor_id(connection, JAIR_NAME)
@@ -313,6 +319,14 @@ async def meuspalpites(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         for row in rows
         if row["pred_home"] is not None and bet_is_open(row, tz_name=settings.timezone)
     ]
+    if not access.can_bet:
+        text = formatters.matches_message(
+            mine, "🎯 Palpites do Jair em aberto", settings.timezone
+        )
+        if mine:
+            text += "\n\nPara alterar: /editarpalpite &lt;id&gt; Jair 2x1"
+        await reply(update, text)
+        return
     text = formatters.matches_message(
         mine, "🎯 Meus palpites em aberto", settings.timezone
     )
@@ -415,7 +429,8 @@ async def resultados(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     settings = settings_of(context)
     limit = min(_int_arg(context) or 5, 15)
     with session(settings.db_path) as connection:
-        matches = recent_results(connection, limit)
+        # Oldest first, so the most recent result ends the message.
+        matches = recent_results(connection, limit)[::-1]
         cards = [
             formatters.match_card(
                 match, bets_for_match(connection, match["match_id"]), settings.timezone
@@ -425,7 +440,7 @@ async def resultados(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not cards:
         await reply(update, "Ainda não há resultados.")
         return
-    await reply(update, formatters.truncate("\n\n".join(cards)))
+    await reply(update, formatters.join_newest_last(cards))
 
 
 @restricted("read")

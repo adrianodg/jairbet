@@ -7,7 +7,13 @@ import pytest
 
 from jairbet.config import CORVO_NAME, JAIR_NAME
 from jairbet.db import connect, init_db
-from jairbet.repository import add_match, add_team, bets_for_match, get_match
+from jairbet.repository import (
+    add_match,
+    add_team,
+    bets_for_match,
+    get_bettors,
+    get_match,
+)
 from jairbet.services import (
     ServiceError,
     create_manual_match,
@@ -67,6 +73,14 @@ def test_jair_bets_before_kickoff_and_animals_follow(
     assert outcome.animals["Caranguejo"] == (1, 2)
     assert len(bets_for_match(database, 1)) == 4
     assert _audit_count(database) == 0
+
+
+def test_bettors_are_listed_in_display_order(database: sqlite3.Connection) -> None:
+    """Bets and bettors always read Jair, Macaco, Caranguejo, Corvo."""
+    save_bet(database, 1, JAIR_NAME, 2, 1, 99, now=BEFORE)
+    order = ["Jair", "Macaco", "Caranguejo", "Corvo"]
+    assert [row["bettor"] for row in bets_for_match(database, 1)] == order
+    assert [row["name"] for row in get_bettors(database)] == order
 
 
 def test_jair_cannot_bet_after_kickoff(database: sqlite3.Connection) -> None:

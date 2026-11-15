@@ -182,6 +182,23 @@ def test_strangers_and_admin_cannot_bet(settings: Settings) -> None:
     assert _bet_count(settings) == 0
 
 
+def test_open_bets_for_jair_and_admin(settings: Settings) -> None:
+    """Jair gets edit buttons, the admin a read-only list, strangers a refusal."""
+    _run(user.palpitar, _update(JAIR), _context(settings, "1", "2x1"))
+    jair = _update(JAIR)
+    _run(user.meuspalpites, jair, _context(settings))
+    assert "Meus palpites" in _replies(jair)
+    assert jair.effective_message.reply_text.call_args.kwargs["reply_markup"]
+    boss = _update(ADMIN)
+    _run(user.meuspalpites, boss, _context(settings))
+    assert "Palpites do Jair" in _replies(boss)
+    assert "Flamengo" in _replies(boss)
+    assert "/editarpalpite" in _replies(boss)
+    stranger = _update(STRANGER)
+    _run(user.meuspalpites, stranger, _context(settings))
+    assert "🚫" in _replies(stranger)
+
+
 def test_admin_result_announces_and_ranks(settings: Settings) -> None:
     """/placar sets the result, notifies and the ranking shows the points."""
     _run(user.palpitar, _update(JAIR), _context(settings, "1", "2x1"))
