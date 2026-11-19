@@ -115,7 +115,7 @@ jairbet/
 │   ├── repository.py       # CRUD + queries (all SQL lives here or in views)
 │   ├── importer.py         # Excel -> SQLite (kept, CLI + /importar)
 │   ├── exporter.py         # SQLite -> .xlsx (kept, CLI + /exportar)
-│   ├── stats.py            # team form, head-to-head, chart data queries
+│   ├── stats.py            # team form, hit rates, chart data queries
 │   ├── charts.py           # matplotlib -> PNG bytes for Telegram
 │   ├── sync.py             # provider -> DB upsert, reconciliation, events
 │   ├── bettors/
@@ -270,8 +270,8 @@ queries and charts).
   `#D55E00`.
 - Charts: cumulative points over time, points per month (grouped bars), winner
   and exact hit rate per team (horizontal bars, at least 3 matches), most
-  predicted scorelines per bettor, and the head-to-head matrix (matches where
-  each bettor scored more than each other bettor).
+  predicted scorelines per bettor, and the cumulative winner and exact hit rate
+  (%) per bettor over time (line charts).
 - Easy for a manager to read: a clear title, labeled axes with units, no
   clutter, and data labels on bar charts. Readable on a phone screen.
 

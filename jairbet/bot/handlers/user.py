@@ -498,7 +498,9 @@ def _render_stats(settings: Settings) -> list[bytes]:
     return [
         charts.cumulative_points(stats.cumulative_points(scored)),
         charts.monthly_points(stats.monthly_points(scored)),
-        charts.head_to_head(stats.head_to_head(scored)),
+        charts.hit_rate_over_time(
+            stats.hit_rate_over_time(scored), stats.MIN_RATE_MATCHES
+        ),
         charts.hit_rates(stats.team_hit_rates(scored), JAIR_NAME),
         charts.predicted_scorelines(stats.top_scorelines(predictions)),
     ]
@@ -518,7 +520,7 @@ async def stats_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     captions = [
         "Pontos acumulados",
         "Pontos por mês",
-        "Confronto direto",
+        "Taxa de acerto ao longo do tempo",
         "Acertos do Jair por time",
         "Placares mais apostados",
     ]

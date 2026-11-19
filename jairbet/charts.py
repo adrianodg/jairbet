@@ -15,6 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
+from matplotlib.ticker import PercentFormatter  # noqa: E402
 
 from jairbet.config import PALETTE  # noqa: E402
 
@@ -260,52 +261,103 @@ def predicted_scorelines(data: pd.DataFrame) -> bytes:
     return buffer.getvalue()
 
 
-def head_to_head(data: pd.DataFrame) -> bytes:
-    """Annotated matrix of how often each bettor out-scored each other one.
+def _spread_labels(
+    ends: list[tuple[float, object, str]], gap: float
+) -> list[tuple[float, float, object, str]]:
+    """Nudge end-of-line labels apart so they do not overlap.
 
     Args:
-        data: Output of ``stats.head_to_head``.
+        ends: ``(value, x, colour)`` for the last point of each line.
+        gap: Minimum vertical distance between labels, in data units.
+
+    Returns:
+        ``(value, label_y, x, colour)`` tuples, sorted by value.
+    """
+    placed: list[tuple[float, float, object, str]] = []
+    for value, when, colour in sorted(ends, key=lambda end: end[0]):
+        label_y = value
+        if placed and label_y - placed[-1][1] < gap:
+            label_y = placed[-1][1] + gap
+        placed.append((value, label_y, when, colour))
+    return placed
+
+
+def hit_rate_over_time(data: pd.DataFrame, stats_min: int = 5) -> bytes:
+    """Line charts of the cumulative winner and exact hit rates per bettor.
+
+    Args:
+        data: Output of ``stats.hit_rate_over_time``.
+        stats_min: Matches each bettor had before the lines start, shown in the
+            subtitle.
 
     Returns:
         PNG bytes.
     """
-    title = "Confronto direto"
+    title = "Taxa de acerto ao longo do tempo"
     if data.empty:
         return _empty(title)
-    figure, axes = _figure(7, 5.5)
-    axes.grid(False)
-    values = data.to_numpy(dtype=float)
-    masked = values.copy()
-    for index in range(len(masked)):
-        masked[index][index] = float("nan")
-    top = max(1.0, float(values.max()))
-    cmap = matplotlib.colormaps["Blues"].copy()
-    cmap.set_bad(BACKGROUND)
-    axes.imshow(masked, cmap=cmap, vmin=0, vmax=top)
-    names = list(data.index)
-    axes.set_xticks(range(len(names)), names)
-    axes.set_yticks(range(len(names)), names)
-    for row in range(len(names)):
-        for column in range(len(names)):
-            if row == column:
-                text, colour = "—", GRID
-            else:
-                text = str(int(values[row][column]))
-                colour = FOREGROUND if values[row][column] > top * 0.55 else BACKGROUND
-            axes.text(
-                column,
-                row,
-                text,
-                ha="center",
-                va="center",
-                fontsize=13,
-                color=colour,
-                fontweight="bold",
-            )
-    return _finish(
-        figure,
-        axes,
-        title,
-        "Adversário (coluna)",
-        "Jogos em que a linha fez mais pontos",
+    figure, (top, bottom) = plt.subplots(2, 1, figsize=(8, 7.5), dpi=150, sharex=True)
+    figure.patch.set_facecolor(BACKGROUND)
+    panels = (
+        (top, "winner_pct", "Acerto do vencedor (%)"),
+        (bottom, "exact_pct", "Placar exato (%)"),
     )
+    for axes, column, label in panels:
+        axes.set_facecolor(BACKGROUND)
+        for spine in ("top", "right"):
+            axes.spines[spine].set_visible(False)
+        for spine in ("left", "bottom"):
+            axes.spines[spine].set_color(GRID)
+        axes.tick_params(colors=FOREGROUND, labelsize=10)
+        axes.grid(axis="y", color=GRID, linewidth=0.6, alpha=0.7)
+        axes.set_axisbelow(True)
+        axes.yaxis.set_major_formatter(PercentFormatter(decimals=0))
+        axes.set_ylabel(label, color=FOREGROUND, fontsize=11)
+        ceiling = max(10.0, float(data[column].max()) * 1.15)
+        ends = []
+        for index, (bettor, frame) in enumerate(data.groupby("bettor", sort=False)):
+            colour = colour_for(bettor, index)
+            axes.plot(
+                frame["match_date"],
+                frame[column],
+                color=colour,
+                linewidth=2.2,
+                label=bettor,
+            )
+            last = frame.iloc[-1]
+            ends.append((float(last[column]), last["match_date"], colour))
+        for value, label_y, when, colour in _spread_labels(ends, ceiling * 0.06):
+            axes.annotate(
+                f"{value:.0f}%",
+                (when, label_y),
+                xytext=(4, 0),
+                textcoords="offset points",
+                color=colour,
+                fontsize=10,
+                fontweight="bold",
+                va="center",
+                annotation_clip=False,
+            )
+        axes.set_ylim(0, ceiling)
+    top.set_title(
+        f"Acumulado, a partir do {stats_min}º jogo de cada apostador",
+        color=FOREGROUND,
+        fontsize=10,
+        loc="left",
+    )
+    legend = top.legend(fontsize=9, ncols=min(data["bettor"].nunique(), 4))
+    legend.get_frame().set_facecolor(BACKGROUND)
+    legend.get_frame().set_edgecolor(GRID)
+    for text in legend.get_texts():
+        text.set_color(FOREGROUND)
+    bottom.set_xlabel("Data do jogo", color=FOREGROUND, fontsize=11)
+    bottom.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m"))
+    figure.autofmt_xdate()
+    figure.suptitle(
+        title, color=FOREGROUND, fontsize=14, fontweight="bold", x=0.02, ha="left"
+    )
+    figure.tight_layout()
+    buffer = io.BytesIO()
+    figure.savefig(buffer, format="png", facecolor=BACKGROUND)
+    plt.close(figure)
+    return buffer.getvalue()

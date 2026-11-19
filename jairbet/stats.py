@@ -8,6 +8,7 @@ from jairbet.config import BETTOR_KINDS, JAIR_NAME
 from jairbet.repository import query_rows
 
 MIN_TEAM_MATCHES = 3
+MIN_RATE_MATCHES = 5
 
 
 def bettor_order(names: list[str]) -> list[str]:
@@ -184,25 +185,43 @@ def top_scorelines(predictions: pd.DataFrame, top: int = 6) -> pd.DataFrame:
     return counts.groupby("bettor").head(top).reset_index(drop=True)
 
 
-def head_to_head(scored: pd.DataFrame) -> pd.DataFrame:
-    """Count the matches where each bettor scored more than each other bettor.
+def hit_rate_over_time(
+    scored: pd.DataFrame, min_matches: int = MIN_RATE_MATCHES
+) -> pd.DataFrame:
+    """Cumulative winner and exact hit rates per bettor by match date.
+
+    The first dates of each bettor are dropped until they have ``min_matches``
+    scored bets, because rates over one or two matches swing from 0 to 100%.
 
     Args:
         scored: Output of :func:`scored_bets`.
+        min_matches: Scored bets a bettor needs before rates are reported.
 
     Returns:
-        Square table: cell (row, column) is how often *row* beat *column*.
+        Columns ``match_date`` (datetime), ``bettor``, ``matches``,
+        ``winner_pct`` and ``exact_pct`` (0-100), one row per bettor and date.
     """
+    columns = ["match_date", "bettor", "matches", "winner_pct", "exact_pct"]
     if scored.empty:
-        return pd.DataFrame()
-    points = scored.pivot_table(
-        index="match_id", columns="bettor", values="points", aggfunc="sum"
+        return pd.DataFrame(columns=columns)
+    daily = scored.groupby(["match_date", "bettor"], as_index=False).agg(
+        played=("winner_hit", "size"),
+        winners=("winner_hit", "sum"),
+        exacts=("exact_hit", "sum"),
     )
-    bettors = bettor_order(list(points.columns))
-    table = pd.DataFrame(0, index=bettors, columns=bettors, dtype=int)
-    for row in bettors:
-        for column in bettors:
-            if row != column:
-                both = points[[row, column]].dropna()
-                table.loc[row, column] = int((both[row] > both[column]).sum())
-    return table
+    daily["match_date"] = pd.to_datetime(daily["match_date"])
+    daily = daily.sort_values("match_date")
+    totals = daily.groupby("bettor")[["played", "winners", "exacts"]].cumsum()
+    daily["matches"] = totals["played"]
+    daily["winner_pct"] = 100 * totals["winners"] / totals["played"]
+    daily["exact_pct"] = 100 * totals["exacts"] / totals["played"]
+    daily = daily[daily["matches"] >= min_matches]
+    rank = {
+        name: index
+        for index, name in enumerate(bettor_order(list(daily["bettor"].unique())))
+    }
+    daily = daily.sort_values(
+        ["bettor", "match_date"],
+        key=lambda col: col.map(rank) if col.name == "bettor" else col,
+    )
+    return daily[columns].reset_index(drop=True)

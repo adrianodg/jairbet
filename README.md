@@ -70,7 +70,7 @@ Everyone allowed (Jair, admin, the group):
 | `/jogo <id>` | One match with every bet |
 | `/resultados [N]` | Latest results and points |
 | `/ranking [mes\|AAAA-MM\|ano\|BSA]` | Ranking, overall or filtered |
-| `/stats` | Charts: cumulative points, points per month, head-to-head, hits per team, favourite scorelines |
+| `/stats` | Charts: cumulative points, points per month, hit rate over time, hits per team, favourite scorelines |
 | `/time <nome>` | A team's performance: recent form, goals, and home/away strength |
 | `/corvo [id]` | Corvo's picks and probabilities |
 
