@@ -126,6 +126,44 @@ the lid closed. Leave it plugged in and on a wired or stable Wi-Fi network.
 
 **Update:** `git pull && sudo ./deploy/install.sh` (it keeps `.env` and data).
 
+### Alternative: deploy with Docker (from your own machine, over ssh)
+
+One-time server setup (installs Docker and Compose, adds your user to the
+`docker` group, keeps the laptop awake with the lid closed, and disables the
+old systemd service if it was installed):
+
+```bash
+scp deploy/docker-server-setup.sh user@server:
+ssh -t user@server 'sudo ./docker-server-setup.sh'   # then reconnect ssh
+```
+
+First deploy, run on your machine from the project folder. It copies the code
+to `~/jairbet` on the server, copies your local `.env` if the server has none,
+copies a snapshot of your local `jairbet.db` with `--with-db`, then builds and
+starts the container:
+
+```bash
+./deploy/docker-deploy.sh user@server --with-db
+```
+
+**Update:** `./deploy/docker-deploy.sh user@server` (keeps `.env` and data).
+
+On the server (`cd ~/jairbet`):
+
+| Task | Command |
+|---|---|
+| Live logs | `docker compose logs -f` |
+| Status | `docker compose ps` |
+| Restart / stop | `docker compose restart` / `docker compose stop` |
+| Edit settings | `nano .env && docker compose up -d` |
+| Run a CLI command | `docker compose exec bot python -m jairbet.bettors --backfill` |
+
+The database and backups live in `~/jairbet/data` on the server (mounted as
+`/data` in the container). The container restarts after a crash and starts on
+boot (`restart: unless-stopped`, Docker enabled by systemd). Restore a backup
+with `docker compose stop`, copy the file over `data/jairbet.db`, delete
+`data/jairbet.db-wal` and `data/jairbet.db-shm`, then `docker compose start`.
+
 ## 5. Backups and restore
 
 - Automatic: `/var/lib/jairbet/backups/jairbet-YYYYMMDD-HHMM.db`, every night.

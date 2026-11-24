@@ -98,3 +98,16 @@ Assumptions made while building Jairbet. Newest (v2) first.
   re-import. Excel helper formula columns are omitted.
 - Macaco is a random baseline: a score from `0x0` to `3x3`, drawn once per
   fixture and then kept.
+
+## Docker deploy
+- Docker is an alternative to `deploy/install.sh`; both are kept. The image
+  (`python:3.12-slim`) installs only the dependencies from `pyproject.toml` and
+  runs the code from `/app` via `PYTHONPATH`, so `PROJECT_ROOT` and the
+  migrations folder resolve the same way as in a source checkout.
+- Data lives in a bind mount `./data` -> `/data`; `DB_PATH` and `BACKUP_DIR`
+  are fixed by `docker-compose.yml` and override `.env`.
+- The container runs as a non-root user whose UID/GID match the ssh user on the
+  server (passed by `deploy/docker-deploy.sh`), so `data/` stays editable.
+- Code is copied with rsync from the developer machine instead of `git pull`,
+  so the server needs no GitHub access and the DB can be seeded in one step.
+- Logs use Docker's `json-file` driver with rotation (5 x 10 MB).

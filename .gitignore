@@ -11,3 +11,6 @@ backups/
 
 # Personal data: keep out of the public repository
 Jairbet_*.xlsx
+
+# Docker deploy data (DB and backups on the server)
+data/
